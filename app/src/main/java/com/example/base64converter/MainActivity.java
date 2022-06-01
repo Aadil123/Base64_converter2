@@ -3,6 +3,7 @@ package com.example.base64converter;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.FileProvider;
 
 import android.Manifest;
 import android.app.ActionBar;
@@ -32,12 +33,14 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Objects;
 
 public class MainActivity extends AppCompatActivity {
     private static final int CAMERA_REQUEST = 1888;
     private static final int IMAGE_REQUEST = 1999;
     private static final int MY_CAMERA_PERMISSION_CODE = 100;
     private static final int MY_STORAGE_PERMISSION_CODE = 200;
+    File root_hidden;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -45,6 +48,7 @@ public class MainActivity extends AppCompatActivity {
         getSupportActionBar().hide();
         Button capture = findViewById(R.id.capture);
         Button upload = findViewById(R.id.upload);
+        root_hidden = new File(getApplicationContext().getExternalFilesDir(Environment.DIRECTORY_PICTURES),".TEMP");
 
         capture.setOnClickListener(new View.OnClickListener() {
             @RequiresApi(api = Build.VERSION_CODES.M)
@@ -57,6 +61,8 @@ public class MainActivity extends AppCompatActivity {
                 else
                 {
                     Intent cameraIntent = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+                    File img = new File(root_hidden,"temp.png");
+                    cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, FileProvider.getUriForFile(Objects.requireNonNull(getApplicationContext()), BuildConfig.APPLICATION_ID + ".provider", img));
                     startActivityForResult(cameraIntent, CAMERA_REQUEST);
                 }
             }
@@ -87,6 +93,8 @@ public class MainActivity extends AppCompatActivity {
             {
                 Toast.makeText(this, "Camera and storage permission granted", Toast.LENGTH_LONG).show();
                 Intent cameraIntent = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+                File img = new File(root_hidden,"temp.png");
+                cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, FileProvider.getUriForFile(Objects.requireNonNull(getApplicationContext()), BuildConfig.APPLICATION_ID + ".provider", img));
                 startActivityForResult(cameraIntent, CAMERA_REQUEST);
             }
             else
@@ -107,12 +115,15 @@ public class MainActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK) {
-            Bitmap photo = (Bitmap) data.getExtras().get("data");
-
+            File root = new File(getApplicationContext().getExternalFilesDir(Environment.DIRECTORY_PICTURES),"APP");
+            File root_hidden = new File(getApplicationContext().getExternalFilesDir(Environment.DIRECTORY_PICTURES),".TEMP");
+            File img = new File(root_hidden,"temp.png");
+            Bitmap photo = BitmapFactory.decodeFile(String.valueOf(img));
+            Bitmap.createBitmap(photo);
 
             Bitmap newBitmap = getResizedBitmap(photo,1080,1920);
 
-            File root = new File(getApplicationContext().getExternalFilesDir(Environment.DIRECTORY_PICTURES),"APP");
+
             if (!root.exists()){
                 root.mkdirs();
             }
@@ -168,20 +179,19 @@ public class MainActivity extends AppCompatActivity {
 
     public Bitmap getResizedBitmap(Bitmap bm, int newHeight, int newWidth)
     {
-        Bitmap scaledBitmap = Bitmap.createBitmap(newWidth, newHeight, Bitmap.Config.ARGB_8888);
+        int width = bm.getWidth();
+        int height = bm.getHeight();
+        float scaleWidth = ((float) newWidth) / width;
+        float scaleHeight = ((float) newHeight) / height;
+        // CREATE A MATRIX FOR THE MANIPULATION
+        Matrix matrix = new Matrix();
+        // RESIZE THE BIT MAP
+        matrix.postScale(scaleWidth, scaleHeight);
 
-        float ratioX = newWidth / (float) bm.getWidth();
-        float ratioY = newHeight / (float) bm.getHeight();
-        float middleX = newWidth / 2.0f;
-        float middleY = newHeight / 2.0f;
-
-        Matrix scaleMatrix = new Matrix();
-        scaleMatrix.setScale(ratioX, ratioY, middleX, middleY);
-
-        Canvas canvas = new Canvas(scaledBitmap);
-        canvas.setMatrix(scaleMatrix);
-        canvas.drawBitmap(bm, middleX - bm.getWidth() / 2, middleY - bm.getHeight() / 2, new Paint(Paint.FILTER_BITMAP_FLAG));
-
-        return scaledBitmap;
+        // "RECREATE" THE NEW BITMAP
+        Bitmap newBitmap = Bitmap.createBitmap(bm, 0, 0, width, height, matrix, false);
+        return newBitmap ;
     }
+
+
 }
